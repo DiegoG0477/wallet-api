@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from src.db.postgresql.config import get_db
 from src.models.user_models import Usuario
 from src.services.jwt_service import verify_token
+from src.models.user_models import Usuario
 
 async def auth_middleware(
     request: Request,
@@ -12,7 +13,7 @@ async def auth_middleware(
     if "user_id" not in token:
         raise HTTPException(status_code=401, detail="Token de usuario inválido")
     
-    user = db.query(user).filter(user.id == token["user_id"]).first()
+    user = db.query(Usuario).filter(Usuario.id == token["user_id"]).first()
 
     if not user:
         raise HTTPException(status_code=401, detail="Usuario no encontrado")

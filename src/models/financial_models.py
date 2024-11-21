@@ -1,5 +1,5 @@
 from bson import ObjectId
-from datetime import date
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, GetJsonSchemaHandler
 
@@ -61,8 +61,8 @@ class MetaAhorroModel(MongoBaseModel):
     nombre: str
     monto_objetivo: float
     monto_actual: float
-    fecha_inicio: date
-    fecha_objetivo: date
+    fecha_inicio: datetime
+    fecha_objetivo: datetime
 
 
 class TransaccionModel(MongoBaseModel):
@@ -71,7 +71,7 @@ class TransaccionModel(MongoBaseModel):
     """
     usuario_id: str
     monto: float
-    fecha: date
+    fecha: datetime
     descripcion: str
 
 
@@ -94,7 +94,7 @@ class ResumenMensualModel(MongoBaseModel):
     Modelo de la colección `resumen_mensual`
     """
     usuario_id: str
-    fecha: date
+    fecha: datetime
     total_ingresos: float
     total_gastos: float
     balance: float

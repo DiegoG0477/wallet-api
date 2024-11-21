@@ -1,8 +1,7 @@
-from pydantic import BaseModel, Field
-from datetime import date
+from pydantic import BaseModel, Field, field_validator
+from datetime import date, datetime
 from typing import Optional, List
 from bson import ObjectId
-
 
 class PyObjectId(ObjectId):
     """Soporte para convertir ObjectId entre Pydantic y MongoDB."""
@@ -27,7 +26,6 @@ class MongoBaseModel(BaseModel):
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
 
 class CategoriaGastoBase(BaseModel):
     """
@@ -52,6 +50,7 @@ class CategoriaGastoCreate(CategoriaGastoBase):
 
 
 class CategoriaGasto(MongoBaseModel, CategoriaGastoBase):
+    _id: str
     class Config:
         from_attributes = True
 
@@ -69,6 +68,7 @@ class UsuarioFinancieroCreate(UsuarioFinancieroBase):
 
 
 class UsuarioFinanciero(MongoBaseModel, UsuarioFinancieroBase):
+    _id: str
     class Config:
         from_attributes = True
 
@@ -78,8 +78,15 @@ class MetaAhorroBase(BaseModel):
     nombre: str
     monto_objetivo: float
     monto_actual: float
-    fecha_inicio: date
-    fecha_objetivo: date
+    fecha_inicio: datetime
+    fecha_objetivo: datetime
+
+    @field_validator('fecha_inicio', 'fecha_objetivo')
+    def convert_date_to_datetime(cls, v):
+        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
+        if isinstance(v, date):
+            return datetime.combine(v, datetime.min.time())
+        return v
 
 
 class MetaAhorroCreate(MetaAhorroBase):
@@ -87,6 +94,7 @@ class MetaAhorroCreate(MetaAhorroBase):
 
 
 class MetaAhorro(MongoBaseModel, MetaAhorroBase):
+    _id: str
     class Config:
         from_attributes = True
 
@@ -94,11 +102,19 @@ class MetaAhorro(MongoBaseModel, MetaAhorroBase):
 class TransaccionBase(BaseModel):
     usuario_id: str
     monto: float
-    fecha: date
+    fecha: datetime
     descripcion: str
+
+    @field_validator('fecha')
+    def convert_date_to_datetime(cls, v):
+        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
+        if isinstance(v, date):
+            return datetime.combine(v, datetime.min.time())
+        return v
 
 
 class Transaccion(MongoBaseModel, TransaccionBase):
+    _id: str
     class Config:
         from_attributes = True
 
@@ -116,12 +132,20 @@ class IngresoCreate(TransaccionBase):
 
 class ResumenMensualBase(BaseModel):
     usuario_id: str
-    fecha: date
+    fecha: datetime
     total_ingresos: float
     total_gastos: float
     balance: float
 
+    @field_validator('fecha')
+    def convert_date_to_datetime(cls, v):
+        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
+        if isinstance(v, date):
+            return datetime.combine(v, datetime.min.time())
+        return v
+
 
 class ResumenMensual(MongoBaseModel, ResumenMensualBase):
+    _id: str
     class Config:
         from_attributes = True
