@@ -6,7 +6,6 @@ from src.services.jwt_service import create_token
 from src.services.encrypt_service import verify_password, hash_password
 from src.services.uuid_service import generate_uuid
 from src.db.mongodb.config import mongo_connection
-import asyncio
 
 def login(db: Session, email: str, password: str):
     user = db.query(user_models.Usuario).filter(user_models.Usuario.correo == email).first()
@@ -35,7 +34,7 @@ async def save_financial_data_to_mongo(usuario_id: str, register_data: Register)
     await db["usuarios_financieros"].insert_one(financial_data)
 
 
-def register(db: Session, register_data: Register) -> Token:
+async def register(db: Session, register_data: Register) -> Token:
     """
     Registra un usuario en PostgreSQL y guarda sus datos financieros en MongoDB.
     """
@@ -61,7 +60,7 @@ def register(db: Session, register_data: Register) -> Token:
     db.commit()
     db.refresh(new_user)
 
-    asyncio.run(save_financial_data_to_mongo(user_uuid, register_data))
+    await save_financial_data_to_mongo(user_uuid, register_data)
 
     token = create_token({"user_id": new_user.id})
     return Token(access_token=token, token_type="bearer")

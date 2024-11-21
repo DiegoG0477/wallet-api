@@ -33,12 +33,13 @@ class MongoDBConnection:
 
     async def close(self):
         """Cierra la conexión con MongoDB."""
-        self._client.close()
+        if self._client:
+            self._client.close()
 
     @property
     def database(self):
         """Devuelve la referencia de la base de datos."""
-        if not self._db:
+        if self._db is None:  # Comparación explícita
             raise RuntimeError("La conexión no está inicializada. Llama a 'connect' primero.")
         return self._db
 

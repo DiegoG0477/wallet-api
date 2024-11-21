@@ -27,7 +27,7 @@ class MongoBaseModel(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
 
     class Config:
-        populate_by_name = True  # Actualizado
+        populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
 

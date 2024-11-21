@@ -18,8 +18,8 @@ def login(
     return auth_controller.login(db, login_data.correo, login_data.contrasena)
 
 @router.post("/register", response_model=auth_schemas.Token, status_code=201)
-def register_teacher(
+async def register_teacher(
     register_data: auth_schemas.Register,
     db: Session = Depends(get_db)
 ):
-    return auth_controller.register(db, register_data)
+    return await auth_controller.register(db, register_data)
