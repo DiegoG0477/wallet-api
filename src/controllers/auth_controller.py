@@ -6,6 +6,7 @@ from src.services.jwt_service import create_token
 from src.services.encrypt_service import verify_password, hash_password
 from src.services.uuid_service import generate_uuid
 from src.db.mongodb.config import mongo_connection
+from datetime import date
 
 def login(db: Session, email: str, password: str):
     user = db.query(user_models.Usuario).filter(user_models.Usuario.correo == email).first()
@@ -48,7 +49,7 @@ async def register(db: Session, register_data: Register) -> Token:
         nombre=register_data.nombre,
         correo=register_data.correo,
         contrasena=hash_password(register_data.contrasena),
-        fecha_registro=register_data.fecha_registro,
+        fecha_registro=date.today(),
         apellido_paterno=register_data.apellido_paterno,
         apellido_materno=register_data.apellido_materno,
         pais_id=register_data.pais_id,

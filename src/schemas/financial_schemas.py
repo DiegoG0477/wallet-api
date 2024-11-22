@@ -130,6 +130,9 @@ class Gasto(Transaccion):
 class IngresoCreate(TransaccionBase):
     pass
 
+class Ingreso(Transaccion):
+    pass
+
 class ResumenMensualBase(BaseModel):
     usuario_id: str
     fecha: datetime

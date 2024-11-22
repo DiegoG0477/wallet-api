@@ -8,6 +8,10 @@ from src.schemas.financial_schemas import (
     CategoriaGastoCreate,
     CategoriaGasto,
     GastoCreate,
+    Gasto,
+    Ingreso,
+    IngresoCreate,
+    UsuarioFinanciero
 )
 from typing import List
 
@@ -87,3 +91,39 @@ async def abonar_meta(meta_id: str, monto: float, request: Request):
     usuario_id = request.state.user.id
     response = await financial_controller.abonar_meta(usuario_id, meta_id, monto)
     return {"message": response["message"]}
+
+@router.get("/gastos", response_model=List[Gasto], dependencies=[Depends(auth_middleware)])
+async def obtener_gastos(request: Request):
+    """
+    Obtener los gastos de un usuario
+    """
+    usuario_id = request.state.user.id
+    gastos = await financial_controller.obtener_gastos(usuario_id)
+    return gastos
+
+@router.get("/ingresos", response_model=List[Ingreso], dependencies=[Depends(auth_middleware)])
+async def obtener_ingresos(request: Request):
+    """
+    Obtener los ingresos registrados de un usuario
+    """
+    usuario_id = request.state.user.id
+    ingresos = await financial_controller.obtener_ingresos(usuario_id)
+    return ingresos
+
+@router.post("/ingresos", response_model=dict, status_code=201, dependencies=[Depends(auth_middleware)])
+async def registrar_gasto(ingreso_data: IngresoCreate, request: Request):
+    """
+    Registrar un nuevo ingreso.
+    """
+    usuario_id = request.state.user.id
+    response = await financial_controller.registrar_ingreso(usuario_id, ingreso_data)
+    return {"message": response["message"]}
+
+@router.get("/datos/financieros", response_model=List[UsuarioFinanciero], dependencies=[Depends(auth_middleware)])
+async def obtener_datos_financieros(request: Request):
+    """
+    Obtener los datos financieros de un usuario
+    """
+    usuario_id = request.state.user.id
+    datos = await financial_controller.obtener_datos_financieros(usuario_id)
+    return datos
