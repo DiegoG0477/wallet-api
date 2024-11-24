@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, Literal
 from bson import ObjectId
 
 class PyObjectId(ObjectId):
@@ -35,43 +35,39 @@ class CategoriaGastoBase(BaseModel):
     usuario_id: str
     nombre: str
     limite_gasto: float
-    gasto_actual: float
-
-
-class CategoriaGastoGet(MongoBaseModel, CategoriaGastoBase):
-    total_gastado: float
-
-    class Config:
-        from_attributes = True
-
+    gasto_total: float
 
 class CategoriaGastoCreate(CategoriaGastoBase):
-    pass
-
+    usuario_id: None = Field(default=None, exclude=True)
+    gasto_total: None = Field(default=None, exclude=True)
 
 class CategoriaGasto(MongoBaseModel, CategoriaGastoBase):
     _id: str
+    deleted: int
     class Config:
         from_attributes = True
 
+class CategoriaGastoGet(MongoBaseModel, CategoriaGastoBase):
+    _id: str
+    gasto_actual: float
+    
+    usuario_id: str = Field(exclude=True)
+    deleted: int = Field(exclude=True)
 
 class UsuarioFinancieroBase(BaseModel):
     usuario_id: str
-    salario_mxn: Optional[float] = Field(None, description="Salario en MXN o null si no aplica")
-    salario_usd: Optional[float] = Field(None, description="Salario en USD o null si no aplica")
+    salario: float
+    divisa: Literal["MXN", "USD"]
     balance_objetivo: float
     gasto_limite: float
 
-
 class UsuarioFinancieroCreate(UsuarioFinancieroBase):
     pass
-
 
 class UsuarioFinanciero(MongoBaseModel, UsuarioFinancieroBase):
     _id: str
     class Config:
         from_attributes = True
-
 
 class MetaAhorroBase(BaseModel):
     usuario_id: str
@@ -83,15 +79,16 @@ class MetaAhorroBase(BaseModel):
 
     @field_validator('fecha_inicio', 'fecha_objetivo')
     def convert_date_to_datetime(cls, v):
-        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
         if isinstance(v, date):
             return datetime.combine(v, datetime.min.time())
         return v
 
-
 class MetaAhorroCreate(MetaAhorroBase):
-    pass
+    usuario_id: None = Field(default=None, exclude=True)
+    monto_actual: None = Field(default=None, exclude=True)
 
+class MetaAhorroUpdate(MetaAhorroCreate):
+    pass
 
 class MetaAhorro(MongoBaseModel, MetaAhorroBase):
     _id: str
@@ -107,7 +104,6 @@ class TransaccionBase(BaseModel):
 
     @field_validator('fecha')
     def convert_date_to_datetime(cls, v):
-        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
         if isinstance(v, date):
             return datetime.combine(v, datetime.min.time())
         return v
@@ -120,14 +116,19 @@ class Transaccion(MongoBaseModel, TransaccionBase):
 
 
 class GastoCreate(TransaccionBase):
+    usuario_id: None = Field(default=None, exclude=True)
     categoria_id: str
 
+class GastoGet(MongoBaseModel, TransaccionBase):
+    _id: str
+    usuario_id: str = Field(exclude=True)
+    categoria_id: str
 
 class Gasto(Transaccion):
     categoria_id: str
 
-
 class IngresoCreate(TransaccionBase):
+    usuario_id: None = Field(default=None, exclude=True)
     pass
 
 class Ingreso(Transaccion):
@@ -142,7 +143,6 @@ class ResumenMensualBase(BaseModel):
 
     @field_validator('fecha')
     def convert_date_to_datetime(cls, v):
-        # Si v es una instancia de date, conviértelo a datetime con hora 00:00:00
         if isinstance(v, date):
             return datetime.combine(v, datetime.min.time())
         return v

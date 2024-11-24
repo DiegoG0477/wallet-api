@@ -39,8 +39,8 @@ class CategoriaGastoModel(MongoBaseModel):
     usuario_id: str
     nombre: str
     limite_gasto: float
-    gasto_actual: float
-
+    gasto_total: float = Field(default=0)
+    deleted: int = Field(default=0)
 
 class UsuarioFinancieroModel(MongoBaseModel):
     """
@@ -60,7 +60,7 @@ class MetaAhorroModel(MongoBaseModel):
     usuario_id: str
     nombre: str
     monto_objetivo: float
-    monto_actual: float
+    monto_actual: float = Field(default=0)
     fecha_inicio: datetime
     fecha_objetivo: datetime
 

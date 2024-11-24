@@ -3,15 +3,15 @@ from src.controllers import financial_controller
 from src.middlewares.auth_middleware import auth_middleware
 from src.schemas.financial_schemas import (
     MetaAhorroCreate,
-    MetaAhorroBase,
     MetaAhorro,
     CategoriaGastoCreate,
-    CategoriaGasto,
+    CategoriaGastoGet,
     GastoCreate,
-    Gasto,
+    GastoGet,
     Ingreso,
     IngresoCreate,
-    UsuarioFinanciero
+    UsuarioFinanciero,
+    MetaAhorroUpdate
 )
 from typing import List
 
@@ -29,8 +29,8 @@ async def crear_meta_ahorro(meta_data: MetaAhorroCreate, request: Request):
     response = await financial_controller.crear_meta_ahorro(usuario_id, meta_data)
     return {"message": response["message"], "meta_id": response["meta_id"]}
 
-@router.patch("/metas/{meta_id}", response_model=dict, dependencies=[Depends(auth_middleware)])
-async def modificar_meta_ahorro(meta_id: str, meta_data: MetaAhorroBase, request: Request):
+@router.put("/metas/{meta_id}", response_model=dict, dependencies=[Depends(auth_middleware)])
+async def modificar_meta_ahorro(meta_id: str, meta_data: MetaAhorroUpdate, request: Request):
     """
     Modificar una meta de ahorro existente.
     """
@@ -65,7 +65,7 @@ async def crear_categoria_gasto(categoria_data: CategoriaGastoCreate, request: R
     response = await financial_controller.crear_categoria_gasto(usuario_id, categoria_data)
     return {"message": response["message"]}
 
-@router.get("/categorias", response_model=List[CategoriaGasto], dependencies=[Depends(auth_middleware)])
+@router.get("/categorias", response_model=List[CategoriaGastoGet], dependencies=[Depends(auth_middleware)])
 async def obtener_categorias_gasto(request: Request, periodo: float):
     """
     Obtener las categorías de gasto de un usuario, filtradas por un período de tiempo.
@@ -92,7 +92,7 @@ async def abonar_meta(meta_id: str, monto: float, request: Request):
     response = await financial_controller.abonar_meta(usuario_id, meta_id, monto)
     return {"message": response["message"]}
 
-@router.get("/gastos", response_model=List[Gasto], dependencies=[Depends(auth_middleware)])
+@router.get("/gastos", response_model=List[GastoGet], dependencies=[Depends(auth_middleware)])
 async def obtener_gastos(request: Request):
     """
     Obtener los gastos de un usuario

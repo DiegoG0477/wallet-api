@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorCollection
 from src.models.financial_models import (
     GastoModel,
+    CategoriaGastoModel,
+    MetaAhorroModel
 )
 from src.schemas.financial_schemas import (
     MetaAhorroBase,
@@ -10,7 +12,7 @@ from src.schemas.financial_schemas import (
     MetaAhorroCreate,
     CategoriaGastoCreate,
     CategoriaGastoGet,
-    Gasto,
+    GastoGet,
     Ingreso,
     IngresoCreate,
     UsuarioFinanciero
@@ -21,6 +23,17 @@ from src.db.mongodb.config import mongo_connection
 async def crear_meta_ahorro(usuario_id: str, meta_data: MetaAhorroCreate):
     meta_data_dict = meta_data.model_dump()
     meta_data_dict['usuario_id'] = usuario_id
+
+    meta_document = MetaAhorroModel(
+        usuario_id=usuario_id,
+        nombre=meta_data.nombre,
+        monto_objetivo=meta_data.monto_objetivo,
+        fecha_inicio=meta_data.fecha_inicio,
+        fecha_objetivo=meta_data.fecha_objetivo
+    )
+
+    meta_data_dict = meta_document.model_dump(by_alias=True)
+
     db: AsyncIOMotorCollection = mongo_connection.database["metas_ahorro"]
     result = await db.insert_one(meta_data_dict)
     return {"message": "Meta de ahorro creada", "meta_id": str(result.inserted_id)}
@@ -68,9 +81,15 @@ async def eliminar_meta_ahorro(usuario_id: str, meta_id: str):
 
 async def crear_categoria_gasto(usuario_id: str, categoria_data: CategoriaGastoCreate):
     db: AsyncIOMotorCollection = mongo_connection.database["categorias_gasto"]
-    categoria_data_dict = categoria_data.model_dump()  # Convierte los datos del modelo a diccionario
-    categoria_data_dict['usuario_id'] = usuario_id  # Asigna el usuario_id a la categoría
-    result = await db.insert_one(categoria_data_dict)  # Inserta la categoría de gasto
+
+    categoria_document = CategoriaGastoModel(
+        usuario_id=usuario_id,
+        nombre=categoria_data.nombre,
+        limite_gasto=categoria_data.limite_gasto,
+    )
+
+    categoria_data_dict = categoria_document.model_dump(by_alias=True)
+    result = await db.insert_one(categoria_data_dict)
     return {"message": "Categoría de gasto creada", "categoria_id": str(result.inserted_id)}
 
 async def abonar_meta(usuario_id: str, meta_id: str, monto: float):
@@ -104,22 +123,36 @@ async def abonar_meta(usuario_id: str, meta_id: str, monto: float):
 
     return {"message": "Abono realizado y registrado como ingreso"}
 
-
 async def registrar_gasto(usuario_id: str, gasto_data: GastoModel):
     gastos_db: AsyncIOMotorCollection = mongo_connection.database["gastos"]
+    categorias_db: AsyncIOMotorCollection = mongo_connection.database["categorias_gasto"]
+
+    try:
+        object_id = ObjectId(gasto_data.categoria_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="ID de categoría inválido")
+
+    result = await categorias_db.update_one(
+        {"_id": object_id, "usuario_id": usuario_id},
+        {"$inc": {"gasto_total": gasto_data.monto}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Categoría de gasto no encontrada")
+
     gasto_data_dict = gasto_data.model_dump()  # Convierte los datos del modelo a diccionario
     gasto_data_dict['usuario_id'] = usuario_id  # Asigna el usuario_id al gasto
     result = await gastos_db.insert_one(gasto_data_dict)  # Inserta el gasto en la base de datos
-    return {"message": "Gasto registrado", "gasto_id": str(result.inserted_id)}
 
+    return {"message": "Gasto registrado", "gasto_id": str(result.inserted_id)}
 
 async def obtener_metas_ahorro(usuario_id: str):
     db: AsyncIOMotorCollection = mongo_connection.database["metas_ahorro"]
-    metas_cursor = db.find({"usuario_id": usuario_id})  # Busca las metas de ahorro del usuario
-    metas = await metas_cursor.to_list(length=None)  # Convierte el cursor a lista
+    metas_cursor = db.find({"usuario_id": usuario_id})
+    metas = await metas_cursor.to_list(length=None)
     for meta in metas:
         meta["_id"] = str(meta["_id"])
-    metas_parsed = [MetaAhorro(**meta) for meta in metas]  # Convierte a modelo MetaAhorro
+    metas_parsed = [MetaAhorro(**meta) for meta in metas]
     return metas_parsed
 
 async def obtener_categorias_gasto(usuario_id: str, periodo: float):
@@ -136,10 +169,7 @@ async def obtener_categorias_gasto(usuario_id: str, periodo: float):
     else:
         raise HTTPException(status_code=400, detail="Período no válido")
 
-    categorias_cursor = categorias_db.find({"$or": [
-        {"usuario_id": usuario_id}, 
-        {"usuario_id": "async default"}
-    ]})
+    categorias_cursor = categorias_db.find({"usuario_id": usuario_id, "deleted": 0})
     categorias = await categorias_cursor.to_list(length=None)
 
     categorias_parsed = []
@@ -153,8 +183,9 @@ async def obtener_categorias_gasto(usuario_id: str, periodo: float):
             }
         )
         gastos = await gastos_cursor.to_list(length=None)
-        total_gastado = sum(gasto["monto"] for gasto in gastos)
-        categoria["total_gastado"] = total_gastado
+        total_gastado = sum(gasto["monto"] for gasto in gastos) or 0
+        categoria["gasto_actual"] = total_gastado
+
         categorias_parsed.append(CategoriaGastoGet(**categoria))
 
     return categorias_parsed
@@ -163,9 +194,13 @@ async def obtener_gastos(usuario_id: str):
     db: AsyncIOMotorCollection = mongo_connection.database["gastos"]
     gastos_cursor = db.find({"usuario_id": usuario_id})
     gastos = await gastos_cursor.to_list(length=None)
+    gastos_parsed = []
+
     for gasto in gastos:
         gasto["_id"] = str(gasto["_id"])
-    gastos_parsed = [Gasto(**gasto) for gasto in gastos]
+
+        gastos_parsed.append(GastoGet(**gasto))
+
     return gastos_parsed
 
 
@@ -190,7 +225,9 @@ async def obtener_datos_financieros(usuario_id: str):
     db: AsyncIOMotorCollection = mongo_connection.database["usuarios_financieros"]
     datos_cursor = db.find({"usuario_id": usuario_id})
     datos = await datos_cursor.to_list(length=None)
-    for dato in datos_cursor:
+
+    for dato in datos:
         dato["_id"] = str(dato["_id"])
+
     datos_parsed = [UsuarioFinanciero(**dato) for dato in datos]
     return datos_parsed

@@ -25,8 +25,8 @@ async def save_financial_data_to_mongo(usuario_id: str, register_data: Register)
     """
     financial_data = {
         "usuario_id": usuario_id,
-        "salario_mxn": register_data.salario_mxn,
-        "salario_usd": register_data.salario_usd,
+        "salario": register_data.salario,
+        "divisa": register_data.divisa,
         "balance_objetivo": register_data.balance_objetivo,
         "gasto_limite": register_data.gasto_limite,
     }
