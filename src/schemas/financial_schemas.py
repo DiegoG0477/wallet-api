@@ -85,10 +85,9 @@ class MetaAhorroBase(BaseModel):
 
 class MetaAhorroCreate(MetaAhorroBase):
     usuario_id: None = Field(default=None, exclude=True)
-    monto_actual: None = Field(default=None, exclude=True)
 
 class MetaAhorroUpdate(MetaAhorroCreate):
-    pass
+    monto_actual: None = Field(default=None, exclude=True)
 
 class MetaAhorro(MongoBaseModel, MetaAhorroBase):
     _id: str
@@ -128,11 +127,11 @@ class Gasto(Transaccion):
     categoria_id: str
 
 class IngresoCreate(TransaccionBase):
+    meta_id: str
     usuario_id: None = Field(default=None, exclude=True)
-    pass
 
 class Ingreso(Transaccion):
-    pass
+    meta_id: str
 
 class ResumenMensualBase(BaseModel):
     usuario_id: str

@@ -7,7 +7,7 @@ class EstadoGet(BaseModel):
 
 class EstadoBase(BaseModel):
     nombre: str
-    pais_id: str
+    pais_id: int
 
 class Estado(EstadoBase):
     id: int

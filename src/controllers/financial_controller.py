@@ -19,6 +19,7 @@ from src.schemas.financial_schemas import (
 )
 from bson import ObjectId
 from src.db.mongodb.config import mongo_connection
+from typing import Optional
 
 async def crear_meta_ahorro(usuario_id: str, meta_data: MetaAhorroCreate):
     meta_data_dict = meta_data.model_dump()
@@ -44,7 +45,6 @@ async def modificar_meta_ahorro(usuario_id: str, meta_id: str, meta_data: MetaAh
     """
     db: AsyncIOMotorCollection = mongo_connection.database["metas_ahorro"]
 
-    # Convertir meta_id a ObjectId
     try:
         object_id = ObjectId(meta_id)
     except Exception:
@@ -116,7 +116,8 @@ async def abonar_meta(usuario_id: str, meta_id: str, monto: float):
         "usuario_id": usuario_id,
         "monto": monto,
         "fecha": datetime.now(),
-        "descripcion": f"Abono a la meta {meta_id}"
+        "descripcion": f"Abono a la meta {meta_id}",
+        "meta_id": meta_id
     }
 
     await ingresos_db.insert_one(ingreso)
@@ -179,11 +180,11 @@ async def obtener_categorias_gasto(usuario_id: str, periodo: float):
             {
                 "usuario_id": usuario_id,
                 "categoria_id": categoria["_id"],
-                "fecha": {"$gte": start_date, "$lte": now},
+                "fecha": {"$gte": start_date, "$lte": (now + timedelta(days=1))},
             }
         )
         gastos = await gastos_cursor.to_list(length=None)
-        total_gastado = sum(gasto["monto"] for gasto in gastos) or 0
+        total_gastado = sum(gasto["monto"] for gasto in gastos)
         categoria["gasto_actual"] = total_gastado
 
         categorias_parsed.append(CategoriaGastoGet(**categoria))
@@ -231,3 +232,92 @@ async def obtener_datos_financieros(usuario_id: str):
 
     datos_parsed = [UsuarioFinanciero(**dato) for dato in datos]
     return datos_parsed
+
+async def obtener_meta_by_id(meta_id: str):
+    db: AsyncIOMotorCollection = mongo_connection.database["metas_ahorro"]
+
+    try:
+        object_id = ObjectId(meta_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="ID de meta inválido")
+
+    meta = await db.find_one({"_id": object_id})
+    
+    if not meta:
+        raise HTTPException(status_code=404, detail="Meta no encontrada")
+
+    meta["_id"] = str(meta["_id"])
+
+    meta_parsed = MetaAhorro(**meta)
+    return meta_parsed
+
+async def obtener_abonos_by_meta_id(meta_id: str, limit: Optional[int] = None):
+    db: AsyncIOMotorCollection = mongo_connection.database["ingresos"]
+
+    ingresos_cursor = db.find({"meta_id": meta_id})
+    if limit:
+        ingresos_cursor = ingresos_cursor.limit(limit)
+    
+    ingresos = await ingresos_cursor.to_list(length=None)
+
+    for ingreso in ingresos:
+        ingreso["_id"] = str(ingreso["_id"])
+    ingresos_parsed = [Ingreso(**ingreso) for ingreso in ingresos]
+    return ingresos_parsed
+
+async def get_resumen(usuario_id: str, periodo: int):
+    categorias_db: AsyncIOMotorCollection = mongo_connection.database["categorias_gasto"]
+    gastos_db: AsyncIOMotorCollection = mongo_connection.database["gastos"]
+
+    now = datetime.now()
+    if periodo >= 1:
+        start_date = now - timedelta(days=(30 * periodo))
+    elif periodo == 0.5:
+        start_date = now - timedelta(days=14)
+    elif periodo == 0.25:
+        start_date = now - timedelta(days=7)
+    else:
+        raise HTTPException(status_code=400, detail="Período no válido")
+
+    categorias_cursor = categorias_db.find({"usuario_id": usuario_id, "deleted": 0})
+    categorias = await categorias_cursor.to_list(length=None)   
+
+    resumen = {}
+
+    total_gastado = 0
+    limite_total = 0
+    for categoria in categorias:
+        categoria["_id"] = str(categoria["_id"])
+        gastos_cursor = gastos_db.find(
+            {
+                "usuario_id": usuario_id,
+                "categoria_id": categoria["_id"],
+                "fecha": {"$gte": start_date, "$lte": (now + timedelta(days=1))},
+            }
+        )
+        gastos = await gastos_cursor.to_list(length=None)
+        total_gastado += sum(gasto["monto"] for gasto in gastos) or 0
+        limite_total += categoria["limite_gasto"]
+        
+    resumen["gasto_total"] = total_gastado
+    resumen["limite_total"] = limite_total
+    resumen["balance"] = limite_total - total_gastado
+
+    return resumen
+
+async def eliminar_categoria(usuario_id: str, categoria_id: str):
+    db: AsyncIOMotorCollection = mongo_connection.database["categorias_gasto"]
+    try:
+        object_id = ObjectId(categoria_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="ID de categoría inválido")
+
+    categoria = await db.find_one({"_id": object_id, "usuario_id": usuario_id})
+    if not categoria:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+
+    result = await db.update_one({"_id": object_id}, {"$set": {"deleted": 1}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="No se pudo eliminar la categoría")
+
+    return {"message": "Categoría eliminada correctamente"}

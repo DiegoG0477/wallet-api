@@ -7,6 +7,7 @@ from src.db.postgresql.config import engine
 from src.routers.auth_router import router as auth_router
 from src.routers.financial_router import router as financial_router
 from src.routers.geo_router import router as geo_router
+from src.routers.user_router import router as user_router
 from src.middlewares.middleware_cors import CustomCORSMiddleware
 
 
@@ -26,6 +27,7 @@ app.add_middleware(CustomCORSMiddleware)
 app.include_router(auth_router)
 app.include_router(financial_router)
 app.include_router(geo_router)
+app.include_router(user_router)
 
 if __name__ == "__main__":
     import uvicorn

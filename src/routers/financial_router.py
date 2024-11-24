@@ -13,7 +13,7 @@ from src.schemas.financial_schemas import (
     UsuarioFinanciero,
     MetaAhorroUpdate
 )
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(
     prefix="/financial",
@@ -111,7 +111,7 @@ async def obtener_ingresos(request: Request):
     return ingresos
 
 @router.post("/ingresos", response_model=dict, status_code=201, dependencies=[Depends(auth_middleware)])
-async def registrar_gasto(ingreso_data: IngresoCreate, request: Request):
+async def registrar_ingreso(ingreso_data: IngresoCreate, request: Request):
     """
     Registrar un nuevo ingreso.
     """
@@ -127,3 +127,39 @@ async def obtener_datos_financieros(request: Request):
     usuario_id = request.state.user.id
     datos = await financial_controller.obtener_datos_financieros(usuario_id)
     return datos
+
+@router.get("/metas/{meta_id}", response_model=MetaAhorro, status_code = 200, dependencies=[Depends(auth_middleware)])
+async def obtener_meta_by_id(meta_id: str):
+    """
+    Obtener meta de ahorro by id
+    """
+
+    meta = await financial_controller.obtener_meta_by_id(meta_id)
+
+    return meta
+
+@router.get("/ingresos/{meta_id}", response_model=List[Ingreso], dependencies=[Depends(auth_middleware)])
+async def obtener_ingresos_by_meta_id(meta_id: str, limit: Optional[int] = None):
+    """
+    Obtener los abonos realizados a una meta, con un límite opcional.
+    """
+    ingresos = await financial_controller.obtener_abonos_by_meta_id(meta_id, limit)
+    return ingresos
+
+@router.get("/datos/resumen", response_model=dict, dependencies=[Depends(auth_middleware)])
+async def obtener_resumen(request: Request, periodo: int):
+    """
+    Obtener el resumen financiero de un usuario
+    """
+    usuario_id = request.state.user.id
+    resumen = await financial_controller.get_resumen(usuario_id, periodo)
+    return resumen
+
+@router.delete("/categorias/{categoria_id}", response_model=dict, dependencies=[Depends(auth_middleware)])
+async def eliminar_categoria(categoria_id: str, request: Request):
+    """
+    Eliminar una categoría de gasto existente.
+    """
+    usuario_id = request.state.user.id
+    response = await financial_controller.eliminar_categoria(usuario_id, categoria_id)
+    return {"message": response["message"]}
